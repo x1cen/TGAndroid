@@ -171,8 +171,8 @@
     <string name="HideStoriesInArchive">Verhalen in archief verbergen</string>
     <string name="ExtractMediaFromPreview">Media uit linkvoorbeeld als bijlage verzenden</string>
 
-    <string name="AppName">Fork Client</string>
-    <string name="AppNameBeta">Fork Client</string>
+    <string name="AppName">Telegram</string>
+    <string name="AppNameBeta">Telegram</string>
     <string name="LanguageName">Nederlands</string>
     <string name="English">Engels</string>
     <string name="LanguageNameInEnglish">Dutch</string>

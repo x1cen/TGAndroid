@@ -171,8 +171,8 @@
     <string name="HideStoriesInArchive">Сховати історії в архіві</string>
     <string name="ExtractMediaFromPreview">Надсилати медіа з попереднього перегляду посилання як вкладення</string>
 
-    <string name="AppName">Fork Client</string>
-    <string name="AppNameBeta">Fork Client</string>
+    <string name="AppName">Telegram</string>
+    <string name="AppNameBeta">Telegram</string>
     <string name="LanguageName">Українська</string>
     <string name="English">Англійська</string>
     <string name="LanguageNameInEnglish">Ukrainian</string>

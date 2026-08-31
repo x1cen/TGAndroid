@@ -170,8 +170,8 @@
     <string name="EnableLastSeenDots">Activar puntos de color de última conexión</string>
     <string name="HideStoriesInArchive">Ocultar historias en el archivo</string>
     <string name="ExtractMediaFromPreview">Enviar medios de la vista previa del enlace como adjunto</string>
-    <string name="AppName">Fork Client</string>
-    <string name="AppNameBeta">Fork Client</string>
+    <string name="AppName">Telegram</string>
+    <string name="AppNameBeta">Telegram</string>
     <string name="LanguageName">Español</string>
     <string name="English">Inglés</string>
     <string name="LanguageNameInEnglish">Spanish</string>

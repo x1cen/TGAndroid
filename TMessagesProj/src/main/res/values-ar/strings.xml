@@ -171,8 +171,8 @@
     <string name="HideStoriesInArchive">إخفاء القصص في الأرشيف</string>
     <string name="ExtractMediaFromPreview">إرسال الوسائط من معاينة الرابط كمرفق</string>
 
-    <string name="AppName">Fork Client</string>
-    <string name="AppNameBeta">Fork Client</string>
+    <string name="AppName">Telegram</string>
+    <string name="AppNameBeta">Telegram</string>
     <string name="LanguageName">العربية</string>
     <string name="English">الإنجليزية</string>
     <string name="LanguageNameInEnglish">Arabic</string>
