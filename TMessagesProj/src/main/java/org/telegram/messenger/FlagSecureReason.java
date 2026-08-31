@@ -44,37 +44,19 @@ public class FlagSecureReason {
     }
 
     private void update(int add) {
-        if (currentSecureReasons == null) {
-            currentSecureReasons = new HashMap<>();
+        if (window != null) {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE);
         }
-
-        Integer count = currentSecureReasons.get(window);
-        int newCount = Math.max(0, (count == null ? 0 : count) + add);
-        if (newCount <= 0) {
-            currentSecureReasons.remove(window);
-        } else {
-            currentSecureReasons.put(window, newCount);
-        }
-
-        updateWindowSecure(window);
     }
 
     private static void updateWindowSecure(Window window) {
-        if (window == null) {
-            return;
-        }
-
-        if (isSecuredNow(window)) {
-            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE);
-            AndroidUtilities.logFlagSecure();
-        } else {
+        if (window != null) {
             window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE);
-            AndroidUtilities.logFlagSecure();
         }
     }
 
     public static boolean isSecuredNow(Window window) {
-        return currentSecureReasons != null && currentSecureReasons.get(window) != null;
+        return false;
     }
 
     public interface FlagSecureCondition {
