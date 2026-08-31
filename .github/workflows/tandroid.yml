@@ -60,19 +60,19 @@ jobs:
 
           echo "DUMMY_CONST=0" >> $vars
           echo "org.gradle.workers.max=1" >> $vars
-          echo "APP_ID=${{ secrets.APP_ID }}" >> $vars
-          echo "APP_HASH=${{ secrets.APP_HASH }}" >> $vars
+          echo "APP_ID=${{ secrets.APP_ID || '4' }}" >> $vars
+          echo "APP_HASH=${{ secrets.APP_HASH || '014b35b6184100b085b0d0572f9b5103' }}" >> $vars
           echo "RELEASE_KEY_PASSWORD=${{ secrets.ALIAS_PASS }}" >> $vars
           echo "RELEASE_KEY_ALIAS=${{ secrets.ALIAS_NAME }}" >> $vars
           echo "RELEASE_STORE_PASSWORD=${{ secrets.KEYSTORE_PASS }}" >> $vars
           echo "RELEASE_KEYSTORE_FILE=$PWD/TMessagesProj/config/release.keystore" >> $vars
           echo "ADDITIONAL_BUILD_NUMBER=$ADDITIONAL_BUILD_NUMBER" >> $vars
           echo "USER_REPO=$USER_REPO" >> $vars
-          echo "CHECK_UPDATES=1" >> $vars
-          echo "USER_ID_OWNER=${{ secrets.USER_ID_OWNER }}" >> $vars
-          echo "UPDATE_CHANNEL_USERNAME=${{ secrets.UPDATE_CHANNEL_USERNAME }}" >> $vars
-          echo "LASTFM_API_KEY=${{ secrets.LASTFM_API_KEY }}" >> $vars
-          echo "LASTFM_API_SECRET=${{ secrets.LASTFM_API_SECRET }}" >> $vars
+          echo "CHECK_UPDATES=0" >> $vars
+          echo "USER_ID_OWNER=${{ secrets.USER_ID_OWNER || '0' }}" >> $vars
+          echo "UPDATE_CHANNEL_USERNAME=${{ secrets.UPDATE_CHANNEL_USERNAME || 'a' }}" >> $vars
+          echo "LASTFM_API_KEY=${{ secrets.LASTFM_API_KEY || 'a' }}" >> $vars
+          echo "LASTFM_API_SECRET=${{ secrets.LASTFM_API_SECRET || 'a' }}" >> $vars
           echo "NATIVE_DEPS_NDK_DIR=${{ steps.setup-ndk-r27c.outputs.ndk-path }}" >> $vars
 
           ###
@@ -117,9 +117,8 @@ jobs:
         with:
           subject-path: 'artifact/*.apk'
 
-      - uses: actions/upload-artifact@master
+      - uses: actions/upload-artifact@v4
         name: Upload artifact
-        if: ${{ contains(github.event.head_commit.message, '[Release]') }}
         with:
           name: ForkClient
           path: artifact/
