@@ -51,6 +51,10 @@ jobs:
       - name: Build.
         run: |
           ###
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > "$PWD/TMessagesProj/config/release.keystore"
+          fi
+
           vars=gradle.properties
 
           echo "DUMMY_CONST=0" >> $vars
