@@ -8314,7 +8314,7 @@ public class MessagesController extends BaseController implements NotificationCe
                view-once media are kept forever on this device. The enc_tasks_v4 rows are
                still drained via getNewDeleteTask so the queue terminates cleanly instead
                of rescheduling the same task forever. */
-            FileLog.e("grafer", "TTL delete task cancelled, keeping messages/media forever (msgDialogs=" + (task != null ? task.size() : 0) + ", mediaDialogs=" + (taskMedia != null ? taskMedia.size() : 0) + ")");
+            FileLog.d("grafer: TTL delete task cancelled, keeping messages/media forever (msgDialogs=" + (task != null ? task.size() : 0) + ", mediaDialogs=" + (taskMedia != null ? taskMedia.size() : 0) + ")");
             Utilities.stageQueue.postRunnable(() -> {
                 getNewDeleteTask(task, taskMedia);
                 currentDeletingTaskTime = 0;
@@ -14474,7 +14474,7 @@ public class MessagesController extends BaseController implements NotificationCe
     public void doDeleteShowOnceTask(long taskId, long dialogId, int mid) {
         getMessagesStorage().removePendingTask(taskId);
         // grafer: view-once media is kept forever - media is never emptied
-        FileLog.e("grafer", "show-once media deletion cancelled, keeping media (did=" + dialogId + " mid=" + mid + ")");
+        FileLog.d("grafer: show-once media deletion cancelled, keeping media (did=" + dialogId + " mid=" + mid + ")");
     }
 
     public void markMessageAsRead2(long dialogId, int mid, TLRPC.InputChannel inputChannel, int ttl, long taskId) {

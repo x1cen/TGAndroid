@@ -15946,7 +15946,7 @@ public class ChatActivity extends BaseFragment implements
         }
         // grafer: new flow for TTL medias in green and private chats - view-once media
         // is kept forever: no destruction task, no force-expire, media stays viewable.
-        FileLog.e("grafer", "secret media delete cancelled, keeping view-once media (mid=" + messageObject.getId() + ")");
+        FileLog.d("grafer: secret media delete cancelled, keeping view-once media (mid=" + messageObject.getId() + ")");
         return null;
     }
 
