@@ -57,10 +57,10 @@ jobs:
           echo "org.gradle.workers.max=1" >> $vars
           echo "APP_ID=${{ secrets.APP_ID }}" >> $vars
           echo "APP_HASH=${{ secrets.APP_HASH }}" >> $vars
-          echo "RELEASE_KEY_PASSWORD=${{ secrets.ALIAS_PASS }}" >> $vars
-          echo "RELEASE_KEY_ALIAS=${{ secrets.ALIAS_NAME }}" >> $vars
-          echo "RELEASE_STORE_PASSWORD=${{ secrets.KEYSTORE_PASS }}" >> $vars
-          echo "RELEASE_KEYSTORE_FILE=$PWD/TMessagesProj/config/release.keystore" >> $vars
+          # No RELEASE_KEYSTORE_FILE / RELEASE_STORE_PASSWORD / RELEASE_KEY_PASSWORD / RELEASE_KEY_ALIAS here:
+          # without them the build signs with the committed test.keystore
+          # (alias telegramtest, password ILRvukMS1XoArnMbCmdMeu3RDigo — hardcoded fallback in TMessagesProj_App/build.gradle).
+          # Forcing release.keystore requires unknown secrets and breaks signing.
           echo "ADDITIONAL_BUILD_NUMBER=$ADDITIONAL_BUILD_NUMBER" >> $vars
           echo "USER_REPO=$USER_REPO" >> $vars
           echo "CHECK_UPDATES=1" >> $vars
