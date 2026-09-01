@@ -50,7 +50,8 @@ android {
     compileSdkVersion 36
     buildToolsVersion '36.0.0'
 
-    defaultConfig.applicationId = "org.forkclient.messenger"
+    // grafer: vanilla package - "Hi, i'm Vanilla telegram using vanilla keys, vanilla fingerprint & package"
+    defaultConfig.applicationId = "org.telegram.messenger"
 
     sourceSets.main.jniLibs.srcDirs = ['../TMessagesProj/jni/']
 
@@ -68,10 +69,11 @@ android {
     }
 
     def fdroid = Utils['isFdroid']()
-    def appSuffix = fdroid ? "" : ".beta"
+    // grafer: vanilla package - no application id suffix anywhere
+    def appSuffix = ""
     def flavorsConfig = fdroid ? "release" : "debug"
     if (fdroid) {
-        defaultConfig.applicationId = "org.forkgram.messenger"
+        defaultConfig.applicationId = "org.telegram.messenger"
     }
 
     signingConfigs {
