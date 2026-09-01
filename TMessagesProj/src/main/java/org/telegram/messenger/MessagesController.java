@@ -8310,38 +8310,16 @@ public class MessagesController extends BaseController implements NotificationCe
             currentDeleteTaskRunnable = null;
             LongSparseArray<ArrayList<Integer>> task = currentDeletingTaskMids != null ? currentDeletingTaskMids.clone() : null;
             LongSparseArray<ArrayList<Integer>> taskMedia = currentDeletingTaskMediaMids != null ? currentDeletingTaskMediaMids.clone() : null;
-            AndroidUtilities.runOnUIThread(() -> {
-                if (task != null) {
-                    for (int a = 0, N = task.size(); a < N; a++) {
-                        ArrayList<Integer> mids = task.valueAt(a);
-                        deleteMessages(mids, null, null, task.keyAt(a), 0, true, 0, !mids.isEmpty() && mids.get(0) > 0);
-                    }
-                }
-                if (taskMedia != null) {
-                    final boolean checkViewer = SecretMediaViewer.hasInstance() && SecretMediaViewer.getInstance().isVisible();
-                    final MessageObject viewerObject = checkViewer ? SecretMediaViewer.getInstance().getCurrentMessageObject() : null;
-                    for (int a = 0, N = taskMedia.size(); a < N; a++) {
-                        long dialogId = taskMedia.keyAt(a);
-                        ArrayList<Integer> mids = taskMedia.valueAt(a);
-                        if (checkViewer && viewerObject != null && viewerObject.currentAccount == currentAccount && viewerObject.getDialogId() == dialogId && mids.contains(viewerObject.getId())) {
-                            final int id = viewerObject.getId();
-                            mids.remove((Integer) id);
-                            viewerObject.forceExpired = true;
-                            final long taskId = createDeleteShowOnceTask(dialogId, id);
-                            SecretMediaViewer.getInstance().setOnClose(() -> doDeleteShowOnceTask(taskId, dialogId, id));
-                            getNotificationCenter().postNotificationName(NotificationCenter.updateMessageMedia, viewerObject.messageOwner);
-                        }
-                        if (!mids.isEmpty()) {
-                            getMessagesStorage().emptyMessagesMedia(dialogId, mids);
-                        }
-                    }
-                }
-                Utilities.stageQueue.postRunnable(() -> {
-                    getNewDeleteTask(task, taskMedia);
-                    currentDeletingTaskTime = 0;
-                    currentDeletingTaskMids = null;
-                    currentDeletingTaskMediaMids = null;
-                });
+            /* grafer: DISABLED LOCAL TTL DELETIONS - secret chat messages, TTL media and
+               view-once media are kept forever on this device. The enc_tasks_v4 rows are
+               still drained via getNewDeleteTask so the queue terminates cleanly instead
+               of rescheduling the same task forever. */
+            FileLog.e("grafer", "TTL delete task cancelled, keeping messages/media forever (msgDialogs=" + (task != null ? task.size() : 0) + ", mediaDialogs=" + (taskMedia != null ? taskMedia.size() : 0) + ")");
+            Utilities.stageQueue.postRunnable(() -> {
+                getNewDeleteTask(task, taskMedia);
+                currentDeletingTaskTime = 0;
+                currentDeletingTaskMids = null;
+                currentDeletingTaskMediaMids = null;
             });
             return true;
         }
@@ -14495,9 +14473,8 @@ public class MessagesController extends BaseController implements NotificationCe
 
     public void doDeleteShowOnceTask(long taskId, long dialogId, int mid) {
         getMessagesStorage().removePendingTask(taskId);
-        ArrayList<Integer> mids = new ArrayList<>();
-        mids.add(mid);
-        getMessagesStorage().emptyMessagesMedia(dialogId, mids);
+        // grafer: view-once media is kept forever - media is never emptied
+        FileLog.e("grafer", "show-once media deletion cancelled, keeping media (did=" + dialogId + " mid=" + mid + ")");
     }
 
     public void markMessageAsRead2(long dialogId, int mid, TLRPC.InputChannel inputChannel, int ttl, long taskId) {

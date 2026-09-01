@@ -15944,14 +15944,10 @@ public class ChatActivity extends BaseFragment implements
         if (messageObject == null || messageObject.isOut() || !messageObject.isSecretMedia() || messageObject.messageOwner.ttl != 0x7FFFFFFF) {
             return null;
         }
-        final long taskId = getMessagesController().createDeleteShowOnceTask(dialog_id, messageObject.getId());
-        messageObject.forceExpired = true;
-        if (messageObject.isOutOwner() || !messageObject.isRoundOnce() && !messageObject.isVoiceOnce()) {
-            ArrayList<MessageObject> msgs = new ArrayList<>();
-            msgs.add(messageObject);
-            updateMessages(msgs, true);
-        }
-        return () -> getMessagesController().doDeleteShowOnceTask(taskId, dialog_id, messageObject.getId());
+        // grafer: new flow for TTL medias in green and private chats - view-once media
+        // is kept forever: no destruction task, no force-expire, media stays viewable.
+        FileLog.e("grafer", "secret media delete cancelled, keeping view-once media (mid=" + messageObject.getId() + ")");
+        return null;
     }
 
     private void clearChatData(boolean full) {
