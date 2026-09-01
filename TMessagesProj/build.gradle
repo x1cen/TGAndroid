@@ -139,7 +139,10 @@ android {
         //obtain your own keys at https://core.telegram.org/api/obtaining_api_id
         buildConfigField 'int', 'APP_ID', APP_ID
         buildConfigField 'String', 'APP_HASH', getStringForConfig(APP_HASH)
-        buildConfigField 'int', 'USER_ID_OWNER', USER_ID_OWNER
+        // USER_ID_OWNER arrives empty when the CI secret is unset; fall back to 0 so the build never breaks
+        def userIdOwnerRaw = project.hasProperty('USER_ID_OWNER') ? String.valueOf(project.property('USER_ID_OWNER')).trim() : ''
+        if (userIdOwnerRaw.isEmpty()) userIdOwnerRaw = '0'
+        buildConfigField 'int', 'USER_ID_OWNER', userIdOwnerRaw
         buildConfigField 'String', 'USER_REPO', getStringForConfig(USER_REPO)
         buildConfigField 'int', 'CHECK_UPDATES', CHECK_UPDATES
         buildConfigField 'String', 'UPDATE_CHANNEL_USERNAME', getStringForConfig(UPDATE_CHANNEL_USERNAME)
