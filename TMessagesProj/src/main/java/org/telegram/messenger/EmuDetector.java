@@ -177,6 +177,9 @@ public class EmuDetector {
     }
 
     public boolean detect() {
+        // grafer: DISABLED emulator detection - gives you LEGIT phone
+        return false;
+        /*
         if (detected) {
             return detectResult;
         }
@@ -199,6 +202,7 @@ public class EmuDetector {
 
         }
         return false;
+        */
     }
 
     private boolean checkBasic() {

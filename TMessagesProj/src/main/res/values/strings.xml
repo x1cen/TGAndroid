@@ -70,7 +70,7 @@
     <string name="formatterDay12HSec">h:mm:ss a</string>
     <string name="CopyWithoutProtocol">Copy without protocol</string>
     <!--fork settings view-->
-    <string name="ForkSettingsTitle">Fork Client Settings</string>
+    <string name="ForkSettingsTitle">Telegram Settings</string>
     <string name="ForkCheckUpdate">Check updates</string>
     <string name="InAppCamera">Enable In-App Camera</string>
     <string name="InAppCameraInfo">In Attachments</string>
@@ -154,8 +154,8 @@
     <string name="EnableLastSeenDots">Enable colored last seen dots</string>
     <string name="HideStoriesInArchive">Hide Stories in Archive</string>
     <string name="ExtractMediaFromPreview">Send media from link preview as attachment</string>
-    <string name="AppName">Fork Client</string>
-    <string name="AppNameBeta">Fork Client</string>
+    <string name="AppName">Telegram</string>
+    <string name="AppNameBeta">Telegram</string>
     <string name="AppNameFdroid">Forkgram</string>
     <string name="LanguageName">English</string>
     <string name="English">English</string>
@@ -3353,6 +3353,13 @@
     <string name="ForgotPasscode">Forgot passcode?</string>
     <string name="ForgotPasscodeInfo">If you forgot your passcode, you\'ll need to delete and reinstall the app.\n\nAll secret chats will be lost.</string>
     <string name="PasscodeScreenHint">Tap a lock icon on the chats page to lock and unlock the app.</string>
+    <string name="grafer_DuressCode">Duress code</string>
+    <string name="grafer_DuressCodeCreateInfo">Enter a decoy code (at least 4 characters). If you are ever forced to unlock the app, enter this code instead of your real one and the app will instantly wipe all of its data (KABOOM).</string>
+    <string name="grafer_DuressCodeConfirm">Confirm duress code</string>
+    <string name="grafer_DuressCodeEnterInfo">Enter your real passcode to start setting up the duress code.</string>
+    <string name="grafer_DuressNeedPasscode">Set a passcode first to be able to set a duress code.</string>
+    <string name="grafer_DuressDisableAlert">Disable the duress code? KABOOM will no longer be triggered when it is entered.</string>
+    <string name="grafer_ScramblePIN">Scramble PIN layout</string>
     <string name="DisablePasscode">Turn Passcode Off</string>
     <string name="DisablePasscodeConfirmMessage">Are you sure you want to turn off passcode?</string>
     <string name="DisablePasscodeTurnOff">Turn Off</string>

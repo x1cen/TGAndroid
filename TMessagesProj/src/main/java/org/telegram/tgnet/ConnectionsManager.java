@@ -848,13 +848,7 @@ public class ConnectionsManager extends BaseController {
 
     public static int getInitFlags() {
         int flags = 0;
-        EmuDetector detector = EmuDetector.with(ApplicationLoader.applicationContext);
-        if (detector.detect()) {
-            if (BuildVars.LOGS_ENABLED) {
-                FileLog.d("detected emu");
-            }
-            flags |= 1024;
-        }
+        // grafer: DISABLED emulator detection - gives you LEGIT phone
         return flags;
     }
 

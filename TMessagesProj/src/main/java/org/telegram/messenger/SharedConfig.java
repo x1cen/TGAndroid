@@ -248,6 +248,10 @@ public class SharedConfig {
     public static long lastUptimeMillis;
     public static int badPasscodeTries;
     public static byte[] passcodeSalt = new byte[0];
+    // grafer: duress code hash (decoy PIN that triggers KABOOM)
+    public static String duressHash = "";
+    // grafer: scramble PIN layout to make your PIN undetectable for CCTV footages
+    public static boolean shufflePinButtons = false;
     public static boolean appLocked;
     public static int autoLockIn = 60 * 60;
 
@@ -457,6 +461,7 @@ public class SharedConfig {
                 SharedPreferences.Editor editor = preferences.edit();
                 editor.putBoolean("saveIncomingPhotos", saveIncomingPhotos);
                 editor.putString("passcodeHash1", passcodeHash);
+                editor.putString("duressHash", duressHash);
                 editor.putString("passcodeSalt", passcodeSalt.length > 0 ? Base64.encodeToString(passcodeSalt, Base64.DEFAULT) : "");
                 editor.putBoolean("appLocked", appLocked);
                 editor.putInt("passcodeType", passcodeType);
@@ -466,6 +471,7 @@ public class SharedConfig {
                 editor.putInt("autoLockIn", autoLockIn);
                 editor.putInt("lastPauseTime", lastPauseTime);
                 editor.putBoolean("useFingerprint", useFingerprintLock);
+                editor.putBoolean("shufflePinButtons", shufflePinButtons);
                 editor.putBoolean("allowScreenCapture", allowScreenCapture);
                 editor.putString("pushString2", pushString);
                 editor.putInt("pushType", pushType);
@@ -539,6 +545,7 @@ public class SharedConfig {
             SharedPreferences preferences = ApplicationLoader.applicationContext.getSharedPreferences("userconfing", Context.MODE_PRIVATE);
             saveIncomingPhotos = preferences.getBoolean("saveIncomingPhotos", false);
             passcodeHash = preferences.getString("passcodeHash1", "");
+            duressHash = preferences.getString("duressHash", "");
             appLocked = preferences.getBoolean("appLocked", false);
             passcodeType = preferences.getInt("passcodeType", 0);
             passcodeRetryInMs = preferences.getLong("passcodeRetryInMs", 0);
@@ -547,6 +554,7 @@ public class SharedConfig {
             autoLockIn = preferences.getInt("autoLockIn", 60 * 60);
             lastPauseTime = preferences.getInt("lastPauseTime", 0);
             useFingerprintLock = preferences.getBoolean("useFingerprint", true);
+            shufflePinButtons = preferences.getBoolean("shufflePinButtons", false);
             allowScreenCapture = preferences.getBoolean("allowScreenCapture", false);
             lastLocalId = preferences.getInt("lastLocalId", -210000);
             pushString = preferences.getString("pushString2", "");
@@ -750,29 +758,9 @@ public class SharedConfig {
 
     public static void increaseBadPasscodeTries() {
         badPasscodeTries++;
-        if (badPasscodeTries >= 3) {
-            switch (badPasscodeTries) {
-                case 3:
-                    passcodeRetryInMs = 5000;
-                    break;
-                case 4:
-                    passcodeRetryInMs = 10000;
-                    break;
-                case 5:
-                    passcodeRetryInMs = 15000;
-                    break;
-                case 6:
-                    passcodeRetryInMs = 20000;
-                    break;
-                case 7:
-                    passcodeRetryInMs = 25000;
-                    break;
-                default:
-                    passcodeRetryInMs = 30000;
-                    break;
-            }
-            lastUptimeMillis = SystemClock.elapsedRealtime();
-        }
+        // grafer: pin retry time reduced to a flat 3 seconds, after KABOOM_PIN_FAILS fails KABOOM
+        passcodeRetryInMs = 3000;
+        lastUptimeMillis = SystemClock.elapsedRealtime();
         saveConfig();
     }
 
@@ -916,6 +904,28 @@ public class SharedConfig {
         return false;
     }
 
+    // grafer: duress code check - returns true if entered code is the duress (decoy) code
+    public static boolean checkDuress(String passcode) {
+        if (duressHash.isEmpty() || passcodeSalt.length == 0) return false;
+        return checkPasscode(duressHash, passcode);
+    }
+
+    // grafer: salt-based passcode check against an arbitrary sha256 hash
+    public static boolean checkPasscode(String sha256, String passcode) {
+        try {
+            byte[] passcodeBytes = passcode.getBytes("UTF-8");
+            byte[] bytes = new byte[32 + passcodeBytes.length];
+            System.arraycopy(passcodeSalt, 0, bytes, 0, 16);
+            System.arraycopy(passcodeBytes, 0, bytes, 16, passcodeBytes.length);
+            System.arraycopy(passcodeSalt, 0, bytes, passcodeBytes.length + 16, 16);
+            String hash = Utilities.bytesToHex(Utilities.computeSHA256(bytes, 0, bytes.length));
+            return sha256.equals(hash);
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+        return false;
+    }
+
     public static void clearConfig() {
         saveIncomingPhotos = false;
         appLocked = false;
@@ -924,6 +934,8 @@ public class SharedConfig {
         lastUptimeMillis = 0;
         badPasscodeTries = 0;
         passcodeHash = "";
+        duressHash = "";
+        shufflePinButtons = false;
         passcodeSalt = new byte[0];
         autoLockIn = 60 * 60;
         lastPauseTime = 0;

@@ -124,6 +124,8 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
     private int sessionsRow;
     @Keep
     private int passcodeRow;
+    // grafer: duress code row
+    private int duressRow;
     @Keep
     private int autoDeleteMesages;
     @Keep
@@ -496,6 +498,11 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
                 }
             } else if (position == passcodeRow) {
                 presentFragment(PasscodeActivity.determineOpenFragment());
+            } else if (position == duressRow) {
+                // grafer: setup duress code that triggers KABOOM
+                PasscodeActivity fragment = new PasscodeActivity(PasscodeActivity.TYPE_ENTER_CODE_TO_MANAGE_SETTINGS);
+                fragment.setDuressSetup(true);
+                presentFragment(fragment);
             } else if (position == secretWebpageRow) {
                 if (getMessagesController().secretWebpagePreview == 1) {
                     getMessagesController().secretWebpagePreview = 0;
@@ -713,6 +720,8 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
         passwordRow = rowCount++;
         autoDeleteMesages = rowCount++;
         passcodeRow = rowCount++;
+        // grafer: duress code (KABOOM decoy PIN)
+        duressRow = rowCount++;
         if (Build.VERSION.SDK_INT >= 28 && BuildVars.SUPPORTS_PASSKEYS) {
             passkeysRow = rowCount++;
         }
@@ -1020,7 +1029,7 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
         @Override
         public boolean isEnabled(RecyclerView.ViewHolder holder) {
             int position = holder.getAdapterPosition();
-            return position == passcodeRow || position == passwordRow || position == passkeysRow || position == blockedRow || position == sessionsRow || position == secretWebpageRow || position == webSessionsRow ||
+            return position == passcodeRow || position == duressRow || position == passwordRow || position == passkeysRow || position == blockedRow || position == sessionsRow || position == secretWebpageRow || position == webSessionsRow ||
                     position == groupsRow && !getContactsController().getLoadingPrivacyInfo(ContactsController.PRIVACY_RULES_TYPE_INVITE) ||
                     position == lastSeenRow && !getContactsController().getLoadingPrivacyInfo(ContactsController.PRIVACY_RULES_TYPE_LASTSEEN) ||
                     position == callsRow && !getContactsController().getLoadingPrivacyInfo(ContactsController.PRIVACY_RULES_TYPE_CALLS) ||
@@ -1370,6 +1379,16 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
                             icon = R.drawable.msg2_secret;
                         }
                         textCell2.setTextAndValueAndIcon(getString(R.string.Passcode), value, true, icon, true);
+                    } else if (position == duressRow) {
+                        // grafer: duress code row
+                        int icon;
+                        if (SharedConfig.duressHash.length() != 0) {
+                            value = getString(R.string.PasswordOn);
+                        } else {
+                            value = getString(R.string.PasswordOff);
+                        }
+                        icon = R.drawable.msg2_secret;
+                        textCell2.setTextAndValueAndIcon(getString(R.string.grafer_DuressCode), value, true, icon, true);
                     } else if (position == blockedRow) {
                         int totalCount = getMessagesController().totalBlockedCount;
                         if (totalCount == 0) {
@@ -1401,7 +1420,7 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
                 return 3;
             } else if (position == botsAndWebsitesShadowRow) {
                 return 4;
-            } else if (position == autoDeleteMesages || position == sessionsRow || position == emailLoginRow || position == passwordRow || position == passkeysRow || position == passcodeRow || position == blockedRow) {
+            } else if (position == autoDeleteMesages || position == sessionsRow || position == emailLoginRow || position == passwordRow || position == passkeysRow || position == passcodeRow || position == duressRow || position == blockedRow) {
                 return 5;
             }
             return 0;

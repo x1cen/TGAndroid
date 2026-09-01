@@ -62,8 +62,10 @@ import androidx.dynamicanimation.animation.SpringForce;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.BotWebViewVibrationEffect;
+import org.telegram.messenger.BuildVars;
 import org.telegram.messenger.FileLog;
 import org.telegram.messenger.FingerprintController;
+import org.telegram.messenger.Kaboom;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
@@ -450,6 +452,22 @@ public class PasscodeView extends FrameLayout implements NotificationCenter.Noti
     private TextView subtitleView;
     private FrameLayout numbersContainer;
     public FrameLayout numbersFrameLayout;
+    // grafer: scrambled PIN layout - grid cell index for every digit button (0..9)
+    private int[] pinCells;
+
+    private void updatePinButtonsOrder() {
+        ArrayList<Integer> cells = new ArrayList<>(10);
+        for (int i = 0; i < 10; i++) {
+            cells.add(i == 9 ? 10 : i);
+        }
+        if (SharedConfig.shufflePinButtons) {
+            Collections.shuffle(cells);
+        }
+        pinCells = new int[10];
+        for (int i = 0; i < 10; i++) {
+            pinCells[i] = cells.get(i);
+        }
+    }
     private ArrayList<TextView> numberTextViews;
     private ArrayList<TextView> lettersTextViews;
     private ArrayList<FrameLayout> numberFrameLayouts;
@@ -895,6 +913,7 @@ public class PasscodeView extends FrameLayout implements NotificationCenter.Noti
             numbersFrameLayout.addView(frameLayout, LayoutHelper.createFrame(BUTTON_SIZE, BUTTON_SIZE, Gravity.TOP | Gravity.LEFT));
         }
         checkFingerprintButton();
+        updatePinButtonsOrder();
     }
 
     private void animateBackground(MotionBackgroundDrawable motionBackgroundDrawable) {
@@ -936,6 +955,11 @@ public class PasscodeView extends FrameLayout implements NotificationCenter.Noti
     }
 
     private void processDone(boolean fingerprint) {
+        // grafer: scramble the PIN layout on every unlock attempt
+        if (SharedConfig.shufflePinButtons) {
+            updatePinButtonsOrder();
+            requestLayout();
+        }
         if (!fingerprint) {
             if (SharedConfig.passcodeRetryInMs > 0) {
                 return;
@@ -950,6 +974,11 @@ public class PasscodeView extends FrameLayout implements NotificationCenter.Noti
                 onPasscodeError();
                 return;
             }
+            // grafer: duress code entered -> KABOOM! wipe all app data
+            if (SharedConfig.checkDuress(password)) {
+                Kaboom.kaboom(getContext(), BuildVars.KABOOM_PIN_FAILS);
+                return;
+            }
             if (!SharedConfig.checkPasscode(password)) {
                 if (HiddenAccountHelper.prepareHiddenUnlockFromPasscode(password) >= 0) {
                     skipFingerprintOnce = true;
@@ -957,6 +986,8 @@ public class PasscodeView extends FrameLayout implements NotificationCenter.Noti
                     return;
                 }
                 SharedConfig.increaseBadPasscodeTries();
+                // grafer: pin retry time is 3s, after 10 fails KABOOM
+                Kaboom.kaboom(getContext(), SharedConfig.badPasscodeTries);
                 if (SharedConfig.passcodeRetryInMs > 0) {
                     checkRetryTextView();
                 }
@@ -1242,41 +1273,17 @@ public class PasscodeView extends FrameLayout implements NotificationCenter.Noti
     }
 
     private boolean hasFingerprint() {
-        Activity parentActivity = AndroidUtilities.findActivity(getContext());
-        if (Build.VERSION.SDK_INT >= 23 && parentActivity != null && SharedConfig.useFingerprintLock) {
-            try {
-                FingerprintManagerCompat fingerprintManager = FingerprintManagerCompat.from(ApplicationLoader.applicationContext);
-                return fingerprintManager.isHardwareDetected() && fingerprintManager.hasEnrolledFingerprints() && FingerprintController.isKeyReady() && !FingerprintController.checkDeviceFingerprintsChanged();
-            } catch (Throwable e) {
-                FileLog.e(e);
-            }
-        }
+        // grafer: fingerprint/FaceID are disabled, so pigs won't use your hands/face to unlock
         return false;
     }
 
     private void checkFingerprintButton() {
-        boolean hasFingerprint = false;
-        Activity parentActivity = AndroidUtilities.findActivity(getContext());
-        if (Build.VERSION.SDK_INT >= 23 && parentActivity != null && SharedConfig.useFingerprintLock) {
-            try {
-                FingerprintManagerCompat fingerprintManager = FingerprintManagerCompat.from(ApplicationLoader.applicationContext);
-                if (fingerprintManager.isHardwareDetected() && fingerprintManager.hasEnrolledFingerprints() && FingerprintController.isKeyReady() && !FingerprintController.checkDeviceFingerprintsChanged()) {
-                    hasFingerprint = true;
-                    fingerprintView.setVisibility(VISIBLE);
-                } else {
-                    fingerprintView.setVisibility(GONE);
-                }
-            } catch (Throwable e) {
-                FileLog.e(e);
-                fingerprintView.setVisibility(GONE);
-            }
-        } else {
-            fingerprintView.setVisibility(GONE);
-        }
+        // grafer: fingerprint/FaceID are disabled
+        fingerprintView.setVisibility(GONE);
         if (SharedConfig.passcodeType == SharedConfig.PASSCODE_TYPE_PASSWORD) {
             fingerprintImage.setVisibility(fingerprintView.getVisibility());
         }
-        subtitleView.setText(LocaleController.getString(hasFingerprint ? R.string.EnterPINorFingerprint : R.string.EnterPIN));
+        subtitleView.setText(LocaleController.getString(R.string.EnterPIN));
     }
 
     public void onShow(boolean fingerprint, boolean animated, int x, int y, Runnable onShow, Runnable onStart) {
@@ -1634,14 +1641,18 @@ public class PasscodeView extends FrameLayout implements NotificationCenter.Noti
         for (int a = 0; a < 12; a++) {
             LayoutParams layoutParams1;
             int num;
-            if (a == 0) {
-                num = 10;
-            } else if (a == 10) {
+            if (a == 10) {
+                // backspace button (bottom right)
                 num = 11;
             } else if (a == 11) {
+                // fingerprint button (bottom left)
                 num = 9;
+            } else if (pinCells != null) {
+                // grafer: scrambled PIN layout to make your PIN undetectable for CCTV footages
+                // (falls back to the classic 1-9,0 layout when scramble is disabled)
+                num = pinCells[a];
             } else {
-                num = a - 1;
+                num = a == 0 ? 10 : a - 1;
             }
             int row = num / 3;
             int col = num % 3;

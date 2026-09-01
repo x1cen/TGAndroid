@@ -6732,16 +6732,8 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     public boolean isChatNoForwards(TLRPC.Chat chat) {
-        if (chat == null) {
-            return false;
-        }
-        if (chat.migrated_to != null) {
-            TLRPC.Chat migratedTo = getChat(chat.migrated_to.channel_id);
-            if (migratedTo != null) {
-                return migratedTo.noforwards;
-            }
-        }
-        return chat.noforwards;
+        // grafer: FULL ACCESS in "restrict saving content" chats
+        return false;
     }
 
     public boolean isChatNoForwards(long chatId) {
@@ -6757,11 +6749,8 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     public boolean isUserNoForwards(TLRPC.UserFull userFull) {
-        if (userFull == null) {
-            return false;
-        }
-
-        return userFull.noforwards_peer_enabled || userFull.noforwards_my_enabled;
+        // grafer: FULL ACCESS in "restrict saving content" chats
+        return false;
     }
 
     public TLRPC.User getUser(Long id) {
@@ -17638,36 +17627,10 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     protected void deleteMessagesByPush(long dialogId, ArrayList<Integer> ids, long channelId) {
-        getMessagesStorage().getStorageQueue().postRunnable(() -> {
-            AndroidUtilities.runOnUIThread(() -> {
-                getNotificationCenter().postNotificationName(NotificationCenter.messagesDeleted, ids, channelId, false);
-                if (channelId == 0) {
-                    for (int b = 0, size2 = ids.size(); b < size2; b++) {
-                        Integer id = ids.get(b);
-                        MessageObject obj = dialogMessagesByIds.get(id);
-                        if (obj != null) {
-                            obj.deleted = true;
-                        }
-                    }
-                } else {
-                    ArrayList<MessageObject> objs = dialogMessage.get(-channelId);
-                    if (objs != null) {
-                        for (int i = 0; i < objs.size(); ++i) {
-                            MessageObject obj = objs.get(i);
-                            for (int b = 0, size2 = ids.size(); b < size2; b++) {
-                                if (obj.getId() == ids.get(b)) {
-                                    obj.deleted = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-            getMessagesStorage().deletePushMessages(dialogId, ids);
-            ArrayList<Long> dialogIds = getMessagesStorage().markMessagesAsDeleted(dialogId, ids, false, true, 0, 0);
-            getMessagesStorage().updateDialogsWithDeletedMessages(dialogId, channelId, ids, dialogIds);
-        });
+        // grafer: DISABLED REMOTE DELETIONS - ignore deletions pushed via GCM/FCM
+        if (BuildVars.LOGS_ENABLED) {
+            FileLog.d("grafer: ignored push deletion of " + (ids == null ? 0 : ids.size()) + " messages in " + dialogId);
+        }
     }
 
     public void checkChatInviter(long chatId, boolean _createMessage) {
@@ -18856,15 +18819,11 @@ public class MessagesController extends BaseController implements NotificationCe
                 dialogs_read_outbox_max.put(dialogId, Math.max(value, update.max_id));
             } else if (baseUpdate instanceof TL_update.TL_updateDeleteMessages) {
                 TL_update.TL_updateDeleteMessages update = (TL_update.TL_updateDeleteMessages) baseUpdate;
-                if (deletedMessages == null) {
-                    deletedMessages = new LongSparseArray<>();
+                // grafer: DISABLED REMOTE DELETIONS - ignore remote delete updates,
+                // nobody gets to decide what must be deleted on MY device
+                if (BuildVars.LOGS_ENABLED) {
+                    FileLog.d("grafer: ignored remote deletion of " + update.messages.size() + " messages");
                 }
-                ArrayList<Integer> arrayList = deletedMessages.get(0);
-                if (arrayList == null) {
-                    arrayList = new ArrayList<>();
-                    deletedMessages.put(0, arrayList);
-                }
-                arrayList.addAll(update.messages);
             } else if (baseUpdate instanceof TL_update.TL_updateDeleteQuickReplyMessages) {
                 TL_update.TL_updateDeleteQuickReplyMessages update = (TL_update.TL_updateDeleteQuickReplyMessages) baseUpdate;
                 if (deletedQuickReplyMessages == null) {
@@ -19378,19 +19337,11 @@ public class MessagesController extends BaseController implements NotificationCe
                 dialogs_read_outbox_max.put(dialogId, Math.max(value, update.max_id));
             } else if (baseUpdate instanceof TL_update.TL_updateDeleteChannelMessages) {
                 TL_update.TL_updateDeleteChannelMessages update = (TL_update.TL_updateDeleteChannelMessages) baseUpdate;
+                // grafer: DISABLED REMOTE DELETIONS - ignore remote delete updates,
+                // nobody gets to decide what must be deleted on MY device
                 if (BuildVars.LOGS_ENABLED) {
-                    FileLog.d(baseUpdate + " channelId = " + update.channel_id);
+                    FileLog.d("grafer: ignored remote channel deletion of " + update.messages.size() + " messages, channelId = " + update.channel_id);
                 }
-                if (deletedMessages == null) {
-                    deletedMessages = new LongSparseArray<>();
-                }
-                long dialogId = -update.channel_id;
-                ArrayList<Integer> arrayList = deletedMessages.get(dialogId);
-                if (arrayList == null) {
-                    arrayList = new ArrayList<>();
-                    deletedMessages.put(dialogId, arrayList);
-                }
-                arrayList.addAll(update.messages);
             } else if (baseUpdate instanceof TL_update.TL_updateChannel) {
                 if (BuildVars.LOGS_ENABLED) {
                     TL_update.TL_updateChannel update = (TL_update.TL_updateChannel) baseUpdate;
@@ -20285,7 +20236,8 @@ public class MessagesController extends BaseController implements NotificationCe
                             if (dialog == null && chat instanceof TLRPC.TL_channel && !chat.left) {
                                 Utilities.stageQueue.postRunnable(() -> getChannelDifference(update.channel_id, 1, 0, null));
                             } else if (ChatObject.isNotInChat(chat) && dialog != null && (promoDialog == null || promoDialog.id != dialog.id)) {
-                                deleteDialog(dialog.id, 0);
+                                // grafer: KEEP CACHED chats while banned in - do not delete the dialog
+                                // deleteDialog(dialog.id, 0);
                             }
                             if (chat instanceof TLRPC.TL_channelForbidden || chat.kicked) {
                                 ChatObject.Call call = getGroupCall(chat.id, false);
@@ -20324,7 +20276,8 @@ public class MessagesController extends BaseController implements NotificationCe
                             }
                             TLRPC.Dialog dialog = dialogs_dict.get(-chat.id);
                             if (dialog != null) {
-                                deleteDialog(dialog.id, 0);
+                                // grafer: KEEP CACHED chats while banned in - do not delete the dialog
+                                // deleteDialog(dialog.id, 0);
                             }
                         }
                         updateMask |= UPDATE_MASK_CHAT;
@@ -21653,6 +21606,9 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     public SponsoredMessagesInfo getSponsoredMessages(long dialogId) {
+        // grafer: DISABLED ADS - never request sponsored messages
+        return null;
+        /*
         SponsoredMessagesInfo info = sponsoredMessages.get(dialogId);
         if (info != null && (info.loading || Math.abs(SystemClock.elapsedRealtime() - info.loadTime) <= 5 * 60 * 1000)) {
             return info;
@@ -21749,6 +21705,7 @@ public class MessagesController extends BaseController implements NotificationCe
             });
         });
         return null;
+        */
     }
 
     public void clearSendAsPeers() {

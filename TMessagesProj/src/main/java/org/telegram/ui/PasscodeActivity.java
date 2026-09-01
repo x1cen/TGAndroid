@@ -48,7 +48,9 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
+import org.telegram.messenger.BuildVars;
 import org.telegram.messenger.FileLog;
+import org.telegram.messenger.Kaboom;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
@@ -128,12 +130,22 @@ public class PasscodeActivity extends BaseFragment implements NotificationCenter
     private int currentPasswordType = 0;
     private int passcodeSetStep = 0;
     private String firstPassword;
+    // grafer: duress code setup mode (decoy code that triggers KABOOM)
+    private boolean isDuressSetup;
+
+    public void setDuressSetup(boolean duressSetup) {
+        isDuressSetup = duressSetup;
+    }
 
     private int utyanRow;
     private int hintRow;
 
     @Keep
     private int changePasscodeRow;
+    @Keep
+    private int duressRow;
+    @Keep
+    private int shuffleRow;
     @Keep
     private int fingerprintRow;
     @Keep
@@ -285,6 +297,7 @@ public class PasscodeActivity extends BaseFragment implements NotificationCenter
                                         HiddenAccountHelper.setStealthModeEnabled(true);
                                     }
                                     SharedConfig.passcodeHash = "";
+                                    SharedConfig.duressHash = "";
                                     SharedConfig.appLocked = false;
                                     SharedConfig.saveConfig();
                                     getMediaDataController().buildShortcuts();
@@ -356,10 +369,33 @@ public class PasscodeActivity extends BaseFragment implements NotificationCenter
                             UserConfig.getInstance(currentAccount).saveConfig(false);
                         });
                         showDialog(builder.create());
-                    } else if (position == fingerprintRow) {
-                        SharedConfig.useFingerprintLock = !SharedConfig.useFingerprintLock;
-                        UserConfig.getInstance(currentAccount).saveConfig(false);
-                        ((TextCheckCell) view).setChecked(SharedConfig.useFingerprintLock);
+                    } else if (position == duressRow) {
+                        // grafer: duress code that triggers KABOOM
+                        if (SharedConfig.duressHash.isEmpty()) {
+                            if (SharedConfig.passcodeHash.isEmpty()) {
+                                AlertsCreator.showSimpleAlert(PasscodeActivity.this, LocaleController.getString(R.string.grafer_DuressNeedPasscode));
+                            } else {
+                                PasscodeActivity fragment = new PasscodeActivity(TYPE_ENTER_CODE_TO_MANAGE_SETTINGS);
+                                fragment.setDuressSetup(true);
+                                presentFragment(fragment);
+                            }
+                        } else {
+                            AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
+                            builder.setTitle(LocaleController.getString(R.string.grafer_DuressCode));
+                            builder.setMessage(LocaleController.getString(R.string.grafer_DuressDisableAlert));
+                            builder.setPositiveButton(LocaleController.getString(R.string.DisablePasscodeTurnOff), (dialog, which) -> {
+                                SharedConfig.duressHash = "";
+                                SharedConfig.saveConfig();
+                                listAdapter.notifyItemChanged(position);
+                            });
+                            builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+                            showDialog(builder.create());
+                        }
+                    } else if (position == shuffleRow) {
+                        // grafer: scramble PIN layout (anti CCTV)
+                        SharedConfig.shufflePinButtons = !SharedConfig.shufflePinButtons;
+                        SharedConfig.saveConfig();
+                        ((TextCheckCell) view).setChecked(SharedConfig.shufflePinButtons);
                     } else if (position == captureRow) {
                         SharedConfig.allowScreenCapture = !SharedConfig.allowScreenCapture;
                         UserConfig.getInstance(currentAccount).saveConfig(false);
@@ -610,7 +646,7 @@ public class PasscodeActivity extends BaseFragment implements NotificationCenter
                         }
                     }
                 };
-                codeFieldContainer.setNumbersCount(4, CodeFieldContainer.TYPE_PASSCODE);
+                codeFieldContainer.setNumbersCount(BuildVars.PIN_MAX_SIZE, CodeFieldContainer.TYPE_PASSCODE);
                 for (CodeNumberField f : codeFieldContainer.codeField) {
                     f.setShowSoftInputOnFocusCompat(!isCustomKeyboardVisible());
                     f.setTransformationMethod(PasswordTransformationMethod.getInstance());
@@ -810,18 +846,9 @@ public class PasscodeActivity extends BaseFragment implements NotificationCenter
         utyanRow = rowCount++;
         hintRow = rowCount++;
         changePasscodeRow = rowCount++;
-        try {
-            if (Build.VERSION.SDK_INT >= 23) {
-                if (
-                    BiometricManager.from(ApplicationLoader.applicationContext).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS &&
-                    AndroidUtilities.isKeyguardSecure()
-                ) {
-                    fingerprintRow = rowCount++;
-                }
-            }
-        } catch (Throwable e) {
-            FileLog.e(e);
-        }
+        // grafer: duress code & scrambled PIN layout rows (fingerprint/FaceID unlock is disabled)
+        duressRow = rowCount++;
+        shuffleRow = rowCount++;
         autoLockRow = rowCount++;
         autoLockDetailRow = rowCount++;
         captureHeaderRow = rowCount++;
@@ -852,9 +879,9 @@ public class PasscodeActivity extends BaseFragment implements NotificationCenter
     private void updateFields() {
         String text;
         if (type == TYPE_ENTER_CODE_TO_MANAGE_SETTINGS) {
-            text = LocaleController.getString(R.string.EnterYourPasscodeInfo);
+            text = isDuressSetup ? LocaleController.getString(R.string.grafer_DuressCodeEnterInfo) : LocaleController.getString(R.string.EnterYourPasscodeInfo);
         } else if (passcodeSetStep == 0) {
-            text = LocaleController.getString(currentPasswordType == SharedConfig.PASSCODE_TYPE_PIN ? R.string.CreatePasscodeInfoPIN : R.string.CreatePasscodeInfoPassword);
+            text = isDuressSetup ? LocaleController.getString(R.string.grafer_DuressCodeCreateInfo) : LocaleController.getString(currentPasswordType == SharedConfig.PASSCODE_TYPE_PIN ? R.string.CreatePasscodeInfoPIN : R.string.CreatePasscodeInfoPassword);
         } else text = descriptionTextSwitcher.getCurrentView().getText().toString();
 
         boolean animate = !(descriptionTextSwitcher.getCurrentView().getText().equals(text) || TextUtils.isEmpty(descriptionTextSwitcher.getCurrentView().getText()));
@@ -893,7 +920,7 @@ public class PasscodeActivity extends BaseFragment implements NotificationCenter
     }
 
     private void processNext() {
-        if (currentPasswordType == SharedConfig.PASSCODE_TYPE_PASSWORD && passwordEditText.getText().length() == 0 || currentPasswordType == SharedConfig.PASSCODE_TYPE_PIN && codeFieldContainer.getCode().length() != 4) {
+        if (currentPasswordType == SharedConfig.PASSCODE_TYPE_PASSWORD && passwordEditText.getText().length() == 0 || currentPasswordType == SharedConfig.PASSCODE_TYPE_PIN && codeFieldContainer.getCode().length() < BuildVars.PIN_MIN_SIZE) {
             onPasscodeError();
             return;
         }
@@ -902,7 +929,7 @@ public class PasscodeActivity extends BaseFragment implements NotificationCenter
             otherItem.setVisibility(View.GONE);
         }
 
-        titleTextView.setText(LocaleController.getString(R.string.ConfirmCreatePasscode));
+        titleTextView.setText(LocaleController.getString(isDuressSetup ? R.string.grafer_DuressCodeConfirm : R.string.ConfirmCreatePasscode));
         descriptionTextSwitcher.setText(AndroidUtilities.replaceTags(LocaleController.getString(R.string.PasscodeReinstallNotice)));
         firstPassword = isPinCode() ? codeFieldContainer.getCode() : passwordEditText.getText().toString();
         passwordEditText.setText("");
@@ -948,22 +975,55 @@ public class PasscodeActivity extends BaseFragment implements NotificationCenter
                 return;
             }
 
-            boolean isFirst = SharedConfig.passcodeHash.isEmpty();
-            try {
-                SharedConfig.passcodeSalt = new byte[16];
-                Utilities.random.nextBytes(SharedConfig.passcodeSalt);
-                byte[] passcodeBytes = firstPassword.getBytes(StandardCharsets.UTF_8);
-                byte[] bytes = new byte[32 + passcodeBytes.length];
-                System.arraycopy(SharedConfig.passcodeSalt, 0, bytes, 0, 16);
-                System.arraycopy(passcodeBytes, 0, bytes, 16, passcodeBytes.length);
-                System.arraycopy(SharedConfig.passcodeSalt, 0, bytes, passcodeBytes.length + 16, 16);
-                SharedConfig.passcodeHash = Utilities.bytesToHex(Utilities.computeSHA256(bytes, 0, bytes.length));
-            } catch (Exception e) {
-                FileLog.e(e);
+            // grafer: duress code must not match the real passcode (and vice versa)
+            if (isDuressSetup && SharedConfig.checkPasscode(firstPassword) || !isDuressSetup && SharedConfig.checkDuress(firstPassword)) {
+                AndroidUtilities.updateViewVisibilityAnimated(passcodesDoNotMatchTextView, true);
+                for (CodeNumberField f : codeFieldContainer.codeField) {
+                    f.setText("");
+                }
+                if (isPinCode()) {
+                    codeFieldContainer.codeField[0].requestFocus();
+                }
+                passwordEditText.setText("");
+                onPasscodeError();
+                return;
             }
-            SharedConfig.allowScreenCapture = true;
-            SharedConfig.passcodeType = currentPasswordType;
-            SharedConfig.saveConfig();
+
+            boolean isFirst = !isDuressSetup && SharedConfig.passcodeHash.isEmpty();
+            if (isDuressSetup) {
+                // grafer: duress code - stored separately from the real passcode (same salt)
+                try {
+                    if (SharedConfig.passcodeSalt.length == 0) {
+                        SharedConfig.passcodeSalt = new byte[16];
+                        Utilities.random.nextBytes(SharedConfig.passcodeSalt);
+                    }
+                    byte[] passcodeBytes = firstPassword.getBytes(StandardCharsets.UTF_8);
+                    byte[] bytes = new byte[32 + passcodeBytes.length];
+                    System.arraycopy(SharedConfig.passcodeSalt, 0, bytes, 0, 16);
+                    System.arraycopy(passcodeBytes, 0, bytes, 16, passcodeBytes.length);
+                    System.arraycopy(SharedConfig.passcodeSalt, 0, bytes, passcodeBytes.length + 16, 16);
+                    SharedConfig.duressHash = Utilities.bytesToHex(Utilities.computeSHA256(bytes, 0, bytes.length));
+                } catch (Exception e) {
+                    FileLog.e(e);
+                }
+                SharedConfig.saveConfig();
+            } else {
+                try {
+                    SharedConfig.passcodeSalt = new byte[16];
+                    Utilities.random.nextBytes(SharedConfig.passcodeSalt);
+                    byte[] passcodeBytes = firstPassword.getBytes(StandardCharsets.UTF_8);
+                    byte[] bytes = new byte[32 + passcodeBytes.length];
+                    System.arraycopy(SharedConfig.passcodeSalt, 0, bytes, 0, 16);
+                    System.arraycopy(passcodeBytes, 0, bytes, 16, passcodeBytes.length);
+                    System.arraycopy(SharedConfig.passcodeSalt, 0, bytes, passcodeBytes.length + 16, 16);
+                    SharedConfig.passcodeHash = Utilities.bytesToHex(Utilities.computeSHA256(bytes, 0, bytes.length));
+                } catch (Exception e) {
+                    FileLog.e(e);
+                }
+                SharedConfig.allowScreenCapture = true;
+                SharedConfig.passcodeType = currentPasswordType;
+                SharedConfig.saveConfig();
+            }
 
             passwordEditText.clearFocus();
             AndroidUtilities.hideKeyboard(passwordEditText);
@@ -1001,8 +1061,30 @@ public class PasscodeActivity extends BaseFragment implements NotificationCenter
                 onPasscodeError();
                 return;
             }
+            if (isDuressSetup && type == TYPE_ENTER_CODE_TO_MANAGE_SETTINGS) {
+                // grafer: duress code setup - confirm the real passcode first
+                if (SharedConfig.checkPasscode(password)) {
+                    type = TYPE_SETUP_CODE;
+                    titleTextView.setText(LocaleController.getString(R.string.grafer_DuressCode));
+                    descriptionTextSwitcher.setText(AndroidUtilities.replaceTags(LocaleController.getString(R.string.grafer_DuressCodeCreateInfo)));
+                    passwordEditText.setText("");
+                    for (CodeNumberField f : codeFieldContainer.codeField) {
+                        f.setText("");
+                    }
+                    if (isPinCode()) {
+                        codeFieldContainer.codeField[0].requestFocus();
+                    }
+                    return;
+                }
+            }
             if (!SharedConfig.checkPasscode(password)) {
+                if (isDuressSetup && type == TYPE_ENTER_CODE_TO_MANAGE_SETTINGS) {
+                    onPasscodeError();
+                    return;
+                }
                 SharedConfig.increaseBadPasscodeTries();
+                // grafer: pin retry time is 3s, after 10 fails KABOOM
+                Kaboom.kaboom(getParentActivity(), SharedConfig.badPasscodeTries);
                 passwordEditText.setText("");
                 for (CodeNumberField f : codeFieldContainer.codeField) {
                     f.setText("");
@@ -1078,7 +1160,7 @@ public class PasscodeActivity extends BaseFragment implements NotificationCenter
         @Override
         public boolean isEnabled(RecyclerView.ViewHolder holder) {
             int position = holder.getAdapterPosition();
-            return position == fingerprintRow || position == autoLockRow || position == captureRow ||
+            return position == fingerprintRow || position == shuffleRow || position == duressRow || position == autoLockRow || position == captureRow ||
                     position == changePasscodeRow || position == disablePasscodeRow;
         }
 
@@ -1118,8 +1200,8 @@ public class PasscodeActivity extends BaseFragment implements NotificationCenter
             switch (holder.getItemViewType()) {
                 case VIEW_TYPE_CHECK: {
                     TextCheckCell textCell = (TextCheckCell) holder.itemView;
-                    if (position == fingerprintRow) {
-                        textCell.setTextAndCheck(LocaleController.getString(R.string.UnlockFingerprint), SharedConfig.useFingerprintLock, false);
+                    if (position == shuffleRow) {
+                        textCell.setTextAndCheck(LocaleController.getString(R.string.grafer_ScramblePIN), SharedConfig.shufflePinButtons, false);
                     } else if (position == captureRow) {
                         textCell.setTextAndCheck(LocaleController.getString(R.string.ScreenCaptureShowContent), SharedConfig.allowScreenCapture, false);
                     }
@@ -1129,6 +1211,15 @@ public class PasscodeActivity extends BaseFragment implements NotificationCenter
                     TextSettingsCell textCell = (TextSettingsCell) holder.itemView;
                     if (position == changePasscodeRow) {
                         textCell.setText(LocaleController.getString(R.string.ChangePasscode), true);
+                        if (SharedConfig.passcodeHash.isEmpty()) {
+                            textCell.setTag(Theme.key_windowBackgroundWhiteGrayText7);
+                            textCell.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText7));
+                        } else {
+                            textCell.setTag(Theme.key_windowBackgroundWhiteBlackText);
+                            textCell.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+                        }
+                    } else if (position == duressRow) {
+                        textCell.setTextAndValue(LocaleController.getString(R.string.grafer_DuressCode), SharedConfig.duressHash.isEmpty() ? LocaleController.getString(R.string.PasswordOff) : LocaleController.getString(R.string.PasswordOn), true);
                         if (SharedConfig.passcodeHash.isEmpty()) {
                             textCell.setTag(Theme.key_windowBackgroundWhiteGrayText7);
                             textCell.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText7));
@@ -1191,9 +1282,9 @@ public class PasscodeActivity extends BaseFragment implements NotificationCenter
 
         @Override
         public int getItemViewType(int position) {
-            if (position == fingerprintRow || position == captureRow) {
+            if (position == shuffleRow || position == captureRow) {
                 return VIEW_TYPE_CHECK;
-            } else if (position == changePasscodeRow || position == autoLockRow || position == disablePasscodeRow) {
+            } else if (position == changePasscodeRow || position == duressRow || position == autoLockRow || position == disablePasscodeRow) {
                 return VIEW_TYPE_SETTING;
             } else if (position == autoLockDetailRow || position == captureDetailRow || position == hintRow) {
                 return VIEW_TYPE_INFO;

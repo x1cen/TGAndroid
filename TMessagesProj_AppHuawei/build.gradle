@@ -164,4 +164,5 @@ android {
     }
 }
 
-apply plugin: 'com.google.gms.google-services'
+// Forkgram cleanup: google-services plugin not used (no Firebase/FCM in this build)
+// apply plugin: 'com.google.gms.google-services'

@@ -2919,7 +2919,8 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                         currentDoneType = DONE_TYPE_FLOATING;
                         needShowProgress(0, false);
 
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && AndroidUtilities.isSimAvailable()) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && false && AndroidUtilities.isSimAvailable()) {
+                            // grafer: no SIM force - do not probe SIM state or nag for phone permissions on login
                             boolean allowCall = getParentActivity().checkSelfPermission(Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED;
                             boolean allowCancelCall = getParentActivity().checkSelfPermission(Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED;
                             boolean allowReadCallLog = Build.VERSION.SDK_INT < Build.VERSION_CODES.P || getParentActivity().checkSelfPermission(Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED;
@@ -3000,7 +3001,8 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             boolean allowReadCallLog = true;
             boolean allowReadPhoneNumbers = true;
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && simcardAvailable) {
+            if (false && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && simcardAvailable) {
+                // grafer: no SIM force - do not probe SIM state or nag for phone permissions on login
                 allowCall = getParentActivity().checkSelfPermission(Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED;
                 allowCancelCall = getParentActivity().checkSelfPermission(Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED;
                 allowReadCallLog = Build.VERSION.SDK_INT < Build.VERSION_CODES.P || getParentActivity().checkSelfPermission(Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED;
@@ -3065,6 +3067,8 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             }
             String phone = PhoneFormat.stripExceptNumbers("" + codeField.getText() + phoneField.getText());
             if (activityMode == MODE_LOGIN) {
+                // grafer: brand unlimited multiacc - you can login with same phone multiple times in same app
+                /*
                 if (getParentActivity() instanceof LaunchActivity) {
                     for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
                         UserConfig userConfig = UserConfig.getInstance(a);
@@ -3090,11 +3094,14 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                         }
                     }
                 }
+                */
             }
 
             TLRPC.TL_codeSettings settings = new TLRPC.TL_codeSettings();
-            settings.allow_flashcall = simcardAvailable && allowCall && allowCancelCall && allowReadCallLog;
-            settings.allow_missed_call = simcardAvailable && allowCall;
+            // grafer: no SIM force - never advertise flash-call/missed-call verification,
+            // so TG sends you the code by mail/session/SMS instead of probing the SIM
+            settings.allow_flashcall = false;
+            settings.allow_missed_call = false;
             settings.allow_app_hash = settings.allow_firebase = PushListenerController.GooglePushListenerServiceProvider.INSTANCE.hasServices();
             if (forceDisableSafetyNet || true) {
                 settings.allow_firebase = false;

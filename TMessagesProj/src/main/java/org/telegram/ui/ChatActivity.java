@@ -15934,29 +15934,10 @@ public class ChatActivity extends BaseFragment implements
         if (messageObject == null || messageObject.isOut() || !messageObject.isSecretMedia() || messageObject.messageOwner.destroyTime != 0 || messageObject.messageOwner.ttl <= 0) {
             return null;
         }
-        if (readNow) {
-            final boolean delete = messageObject.messageOwner.ttl != 0x7FFFFFFF;
-            final int ttl = messageObject.messageOwner.ttl == 0x7FFFFFFF ? 0 : messageObject.messageOwner.ttl;
-            messageObject.messageOwner.destroyTime = ttl + getConnectionsManager().getCurrentTime();
-            if (currentEncryptedChat != null) {
-                getMessagesController().markMessageAsRead(dialog_id, messageObject.messageOwner.random_id, ttl);
-            } else {
-                getMessagesController().markMessageAsRead2(dialog_id, messageObject.getId(), null, ttl, 0, delete);
-            }
-            return null;
-        } else {
-            return () -> {
-                final boolean delete = messageObject.messageOwner.ttl != 0x7FFFFFFF;
-                final int ttl = messageObject.messageOwner.ttl == 0x7FFFFFFF ? 0 : messageObject.messageOwner.ttl;
-                messageObject.messageOwner.destroyTime = ttl + getConnectionsManager().getCurrentTime();
-                messageObject.messageOwner.destroyTimeMillis = ttl * 1000L + getConnectionsManager().getCurrentTimeMillis();
-                if (currentEncryptedChat != null) {
-                    getMessagesController().markMessageAsRead(dialog_id, messageObject.messageOwner.random_id, ttl);
-                } else {
-                    getMessagesController().markMessageAsRead2(dialog_id, messageObject.getId(), null, ttl, 0, delete);
-                }
-            };
-        }
+        // grafer: new flow for TTL medias in green and private chats - make nudes last forever.
+        // Do not schedule the local destruction countdown when the media is read;
+        // remote deletions are ignored as well, so media stays viewable on this device.
+        return null;
     }
 
     private Runnable sendSecretMediaDelete(MessageObject messageObject) {
