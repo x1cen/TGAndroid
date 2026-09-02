@@ -1263,6 +1263,7 @@ public class ChatActivity extends BaseFragment implements
 
     public final static int OPTION_VIEW_STATISTICS = 115;
     public final static int OPTION_WELCOME_REVERT = 116;
+    public final static int OPTION_MARK_SEEN_KEEP = 117;
 
     private final static int[] allowedNotificationsDuringChatListAnimations = new int[]{
             NotificationCenter.messagesRead,
@@ -3119,6 +3120,7 @@ public class ChatActivity extends BaseFragment implements
             .add(NotificationCenter.blockedUsersDidLoad)
             .add(NotificationCenter.fileNewChunkAvailable)
             .add(NotificationCenter.didCreatedNewDeleteTask)
+            .add(NotificationCenter.graferMessagesMarkedDeleted)
             .add(NotificationCenter.messagePlayingDidStart)
             .add(NotificationCenter.updateMessageMedia)
             .add(NotificationCenter.voiceTranscriptionUpdate)
@@ -15950,6 +15952,31 @@ public class ChatActivity extends BaseFragment implements
         return null;
     }
 
+    // grafer: mark TTL message as seen on server/peer, keep the local copy forever
+    private void graferMarkTtlSeen(MessageObject m) {
+        if (m == null || m.messageOwner == null) {
+            return;
+        }
+        if (DialogObject.isEncryptedDialog(m.getDialogId())) {
+            // secret chat: send the read state to the peer, but no local destruction task
+            getMessagesController().markMessageAsRead(m.getDialogId(), m.messageOwner.random_id, Integer.MIN_VALUE);
+        } else {
+            // normal chat: server marks the TTL media as seen/opened
+            TLRPC.TL_messages_readMessageContents req = new TLRPC.TL_messages_readMessageContents();
+            req.id.add(m.getId());
+            getConnectionsManager().sendRequest(req, (res, err) -> {
+                if (res instanceof TLRPC.TL_messages_affectedMessages) {
+                    TLRPC.TL_messages_affectedMessages af = (TLRPC.TL_messages_affectedMessages) res;
+                    getMessagesController().processNewDifferenceParams(-1, af.pts, -1, af.pts_count);
+                }
+            }, ConnectionsManager.RequestFlagFailOnServerErrors);
+        }
+        ArrayList<Integer> mids = new ArrayList<>();
+        mids.add(m.getId());
+        getMessagesStorage().markMessagesContentAsRead(m.getDialogId(), mids, 0, 0);
+        BulletinFactory.of(ChatActivity.this).createSimpleBulletin(R.raw.contact_check, getString(R.string.grafer_MarkSeenDone)).show();
+    }
+
     private void clearChatData(boolean full) {
         messages.clear();
         messagesByDays.clear();
@@ -23473,6 +23500,23 @@ public class ChatActivity extends BaseFragment implements
                         messageObject.messageOwner.destroyTime = key;
                         changed = true;
                     }
+                }
+            }
+            if (changed) {
+                updateVisibleRows();
+            }
+        } else if (id == NotificationCenter.graferMessagesMarkedDeleted) {
+            long graferDialogId = (Long) args[0];
+            if (graferDialogId != 0 && graferDialogId != dialog_id) {
+                return;
+            }
+            ArrayList<Integer> graferMids = (ArrayList<Integer>) args[1];
+            boolean changed = false;
+            for (int a = 0; a < graferMids.size(); a++) {
+                MessageObject mo = messagesDict[0].get(graferMids.get(a));
+                if (mo != null && !mo.messageOwner.graferDeleted) {
+                    mo.messageOwner.graferDeleted = true;
+                    changed = true;
                 }
             }
             if (changed) {
@@ -34019,6 +34063,10 @@ public class ChatActivity extends BaseFragment implements
                         }
                     }
                 });
+                break;
+            }
+            case OPTION_MARK_SEEN_KEEP: {
+                graferMarkTtlSeen(selectedObject);
                 break;
             }
             case OPTION_DELETE: {
@@ -46519,6 +46567,12 @@ public class ChatActivity extends BaseFragment implements
             options.add(OPTION_DELETE);
             icons.add(deleteIconRes);
         } else {
+            // grafer: "mark as seen (keep local)" for TTL messages - shown for chats/messages with a timer
+            if (selectedObject != null && selectedObject.messageOwner != null && selectedObject.getId() > 0 && (selectedObject.messageOwner.ttl > 0 || selectedObject.messageOwner.ttl_period != 0 || (MessageObject.getMedia(selectedObject.messageOwner) != null && MessageObject.getMedia(selectedObject.messageOwner).ttl_seconds != 0))) {
+                items.add(LocaleController.getString(R.string.grafer_MarkSeenKeep));
+                options.add(OPTION_MARK_SEEN_KEEP);
+                icons.add(R.drawable.msg_markread);
+            }
             if (currentEncryptedChat == null) {
                 if (!selectedObject.isPaidSuggestedPostProtected() && chatMode == MODE_SCHEDULED) {
                     items.add(LocaleController.getString(R.string.MessageScheduleSend));

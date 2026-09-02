@@ -119,7 +119,7 @@ public class MessagesStorage extends BaseController {
         }
     }
 
-    public final static int LAST_DB_VERSION = 178;
+    public final static int LAST_DB_VERSION = 179;
     private boolean databaseMigrationInProgress;
     public boolean showClearDatabaseAlert;
 
@@ -549,7 +549,7 @@ public class MessagesStorage extends BaseController {
         database.executeFast("CREATE INDEX IF NOT EXISTS reply_to_idx_scheduled_messages_v2 ON scheduled_messages_v2(mid, reply_to_message_id);").stepThis().dispose();
         database.executeFast("CREATE INDEX IF NOT EXISTS idx_to_reply_scheduled_messages_v2 ON scheduled_messages_v2(reply_to_message_id, mid);").stepThis().dispose();
 
-        database.executeFast("CREATE TABLE messages_v2(mid INTEGER, uid INTEGER, read_state INTEGER, send_state INTEGER, date INTEGER, data BLOB, out INTEGER, ttl INTEGER, media INTEGER, replydata BLOB, imp INTEGER, mention INTEGER, forwards INTEGER, replies_data BLOB, thread_reply_id INTEGER, is_channel INTEGER, reply_to_message_id INTEGER, custom_params BLOB, group_id INTEGER, reply_to_story_id INTEGER, PRIMARY KEY(mid, uid))").stepThis().dispose();
+        database.executeFast("CREATE TABLE messages_v2(mid INTEGER, uid INTEGER, read_state INTEGER, send_state INTEGER, date INTEGER, data BLOB, out INTEGER, ttl INTEGER, media INTEGER, replydata BLOB, imp INTEGER, mention INTEGER, forwards INTEGER, replies_data BLOB, thread_reply_id INTEGER, is_channel INTEGER, reply_to_message_id INTEGER, custom_params BLOB, group_id INTEGER, reply_to_story_id INTEGER, isdel INTEGER DEFAULT 0, PRIMARY KEY(mid, uid))").stepThis().dispose();
         database.executeFast("CREATE INDEX IF NOT EXISTS uid_mid_read_out_idx_messages_v2 ON messages_v2(uid, mid, read_state, out);").stepThis().dispose();
         database.executeFast("CREATE INDEX IF NOT EXISTS uid_date_mid_idx_messages_v2 ON messages_v2(uid, date, mid);").stepThis().dispose();
         database.executeFast("CREATE INDEX IF NOT EXISTS mid_out_idx_messages_v2 ON messages_v2(mid, out);").stepThis().dispose();
@@ -5870,6 +5870,44 @@ public class MessagesStorage extends BaseController {
         });
     }
 
+    // grafer: mark messages as "deleted by remote" but KEEP them locally
+    public void markMessagesAsGraferDeleted(long dialogId, ArrayList<Integer> mids) {
+        if (mids == null || mids.isEmpty()) {
+            return;
+        }
+        storageQueue.postRunnable(() -> {
+            try {
+                String ids = TextUtils.join(",", mids);
+                database.executeFast(String.format(Locale.US, "UPDATE messages_v2 SET isdel = 1 WHERE mid IN(%s) AND uid = %d", ids, dialogId)).stepThis().dispose();
+                database.executeFast(String.format(Locale.US, "UPDATE messages_topics SET isdel = 1 WHERE mid IN(%s) AND uid = %d", ids, dialogId)).stepThis().dispose();
+            } catch (Exception e) {
+                checkSQLException(e);
+            }
+            AndroidUtilities.runOnUIThread(() -> {
+                getNotificationCenter().postNotificationName(NotificationCenter.graferMessagesMarkedDeleted, dialogId, mids);
+            });
+        });
+    }
+
+    // grafer: same, but dialog unknown (updateDeleteMessages carries no peer) - mark by mid everywhere
+    public void markMessagesAsGraferDeleted(ArrayList<Integer> mids) {
+        if (mids == null || mids.isEmpty()) {
+            return;
+        }
+        storageQueue.postRunnable(() -> {
+            try {
+                String ids = TextUtils.join(",", mids);
+                database.executeFast(String.format(Locale.US, "UPDATE messages_v2 SET isdel = 1 WHERE mid IN(%s)", ids)).stepThis().dispose();
+                database.executeFast(String.format(Locale.US, "UPDATE messages_topics SET isdel = 1 WHERE mid IN(%s)", ids)).stepThis().dispose();
+            } catch (Exception e) {
+                checkSQLException(e);
+            }
+            AndroidUtilities.runOnUIThread(() -> {
+                getNotificationCenter().postNotificationName(NotificationCenter.graferMessagesMarkedDeleted, 0, mids);
+            });
+        });
+    }
+
     public void createTaskForMid(long dialogId, int messageId, int time, int readTime, int ttl, boolean inner) {
         storageQueue.postRunnable(() -> {
             SQLitePreparedStatement state = null;
@@ -8940,9 +8978,9 @@ public class MessagesStorage extends BaseController {
             ArrayList<Long> replyMessageRandomIds = new ArrayList<>();
             final String messageSelect;
             if (threadMessageId != 0) {
-                messageSelect = "SELECT m.read_state, m.data, m.send_state, m.mid, m.date, r.random_id, m.replydata, m.media, m.ttl, m.mention, m.imp, m.forwards, m.replies_data, m.custom_params, m.reply_to_story_id FROM messages_topics as m LEFT JOIN randoms_v2 as r ON r.mid = m.mid AND r.uid = m.uid";
+                messageSelect = "SELECT m.read_state, m.data, m.send_state, m.mid, m.date, r.random_id, m.replydata, m.media, m.ttl, m.mention, m.imp, m.forwards, m.replies_data, m.custom_params, m.reply_to_story_id, m.isdel FROM messages_topics as m LEFT JOIN randoms_v2 as r ON r.mid = m.mid AND r.uid = m.uid";
             } else {
-                messageSelect = "SELECT m.read_state, m.data, m.send_state, m.mid, m.date, r.random_id, m.replydata, m.media, m.ttl, m.mention, m.imp, m.forwards, m.replies_data, m.custom_params, m.reply_to_story_id FROM messages_v2 as m LEFT JOIN randoms_v2 as r ON r.mid = m.mid AND r.uid = m.uid";
+                messageSelect = "SELECT m.read_state, m.data, m.send_state, m.mid, m.date, r.random_id, m.replydata, m.media, m.ttl, m.mention, m.imp, m.forwards, m.replies_data, m.custom_params, m.reply_to_story_id, m.isdel FROM messages_v2 as m LEFT JOIN randoms_v2 as r ON r.mid = m.mid AND r.uid = m.uid";
             }
             if (scheduled) {
                 isEnd = true;
@@ -9704,6 +9742,8 @@ public class MessagesStorage extends BaseController {
                         } else if ((flags & 2) != 0) {
                             message.stickerVerified = 2;
                         }
+                        // grafer: remote-deleted mark (message kept locally)
+                        message.graferDeleted = cursor.intValue(15) != 0;
                         NativeByteBuffer customParams = cursor.byteBufferValue(13);
                         if (customParams != null) {
                             MessageCustomParamsHelper.readLocalParams(message, customParams);

@@ -1693,6 +1693,13 @@ public class DatabaseMigrationHelper {
             database.executeFast("PRAGMA user_version = 178").stepThis().dispose();
             version = 178;
         }
+        if (version == 178) {
+            // grafer: per-message "deleted by remote" mark (kept instead of removed)
+            executeNoException(database, "ALTER TABLE messages_v2 ADD COLUMN isdel INTEGER DEFAULT 0");
+            executeNoException(database, "ALTER TABLE messages_topics ADD COLUMN isdel INTEGER DEFAULT 0");
+            database.executeFast("PRAGMA user_version = 179").stepThis().dispose();
+            version = 179;
+        }
 
         return version;
     }

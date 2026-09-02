@@ -57495,6 +57495,7 @@ public class TLRPC {
         public boolean voiceTranscriptionFinal; //custom
         public boolean voiceTranscriptionForce; //custom
         public long voiceTranscriptionId; //custom
+        public boolean graferDeleted; //custom: marked as deleted by remote, kept locally
         public boolean premiumEffectWasPlayed; //custom
         public String originalLanguage; //custom
         public String translatedToLanguage; //custom

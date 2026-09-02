@@ -50,8 +50,8 @@ android {
     compileSdkVersion 36
     buildToolsVersion '36.0.0'
 
-    // grafer: vanilla package - "Hi, i'm Vanilla telegram using vanilla keys, vanilla fingerprint & package"
-    defaultConfig.applicationId = "org.telegram.messenger"
+    // grafer: unique package so the app installs ALONGSIDE the official Telegram
+    defaultConfig.applicationId = "me.x1cen.telegram"
 
     sourceSets.main.jniLibs.srcDirs = ['../TMessagesProj/jni/']
 
@@ -73,7 +73,8 @@ android {
     def appSuffix = ""
     def flavorsConfig = fdroid ? "release" : "debug"
     if (fdroid) {
-        defaultConfig.applicationId = "org.telegram.messenger"
+        // grafer: unique package so the app installs ALONGSIDE the official Telegram
+        defaultConfig.applicationId = "me.x1cen.telegram"
     }
 
     signingConfigs {

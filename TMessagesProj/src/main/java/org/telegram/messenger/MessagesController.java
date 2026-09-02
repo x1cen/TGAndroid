@@ -17604,10 +17604,12 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     protected void deleteMessagesByPush(long dialogId, ArrayList<Integer> ids, long channelId) {
-        // grafer: DISABLED REMOTE DELETIONS - ignore deletions pushed via GCM/FCM
-        if (BuildVars.LOGS_ENABLED) {
-            FileLog.d("grafer: ignored push deletion of " + (ids == null ? 0 : ids.size()) + " messages in " + dialogId);
+        // grafer: DISABLED REMOTE DELETIONS - keep pushed-deleted messages with a "deleted" mark
+        if (ids != null && !ids.isEmpty()) {
+            long graferDialogId = channelId != 0 ? -channelId : dialogId;
+            getMessagesStorage().markMessagesAsGraferDeleted(graferDialogId, ids);
         }
+        FileLog.d("grafer: ignored push deletion of " + (ids == null ? 0 : ids.size()) + " messages in " + dialogId);
     }
 
     public void checkChatInviter(long chatId, boolean _createMessage) {
@@ -18796,8 +18798,10 @@ public class MessagesController extends BaseController implements NotificationCe
                 dialogs_read_outbox_max.put(dialogId, Math.max(value, update.max_id));
             } else if (baseUpdate instanceof TL_update.TL_updateDeleteMessages) {
                 TL_update.TL_updateDeleteMessages update = (TL_update.TL_updateDeleteMessages) baseUpdate;
-                // grafer: DISABLED REMOTE DELETIONS - ignore remote delete updates,
-                // nobody gets to decide what must be deleted on MY device
+                // grafer: DISABLED REMOTE DELETIONS - mark as deleted instead of removing
+                if (!update.messages.isEmpty()) {
+                    getMessagesStorage().markMessagesAsGraferDeleted(update.messages);
+                }
                 if (BuildVars.LOGS_ENABLED) {
                     FileLog.d("grafer: ignored remote deletion of " + update.messages.size() + " messages");
                 }
@@ -19314,10 +19318,14 @@ public class MessagesController extends BaseController implements NotificationCe
                 dialogs_read_outbox_max.put(dialogId, Math.max(value, update.max_id));
             } else if (baseUpdate instanceof TL_update.TL_updateDeleteChannelMessages) {
                 TL_update.TL_updateDeleteChannelMessages update = (TL_update.TL_updateDeleteChannelMessages) baseUpdate;
-                // grafer: DISABLED REMOTE DELETIONS - ignore remote delete updates,
-                // nobody gets to decide what must be deleted on MY device
+                // grafer: DISABLED REMOTE DELETIONS - mark as deleted instead of removing
+                ArrayList<Integer> graferMids = update.messages;
+                long graferDialogId = -update.channel_id;
+                if (graferMids != null && !graferMids.isEmpty()) {
+                    getMessagesStorage().markMessagesAsGraferDeleted(graferDialogId, graferMids);
+                }
                 if (BuildVars.LOGS_ENABLED) {
-                    FileLog.d("grafer: ignored remote channel deletion of " + update.messages.size() + " messages, channelId = " + update.channel_id);
+                    FileLog.d("grafer: ignored remote channel deletion of " + graferMids.size() + " messages, channelId = " + update.channel_id);
                 }
             } else if (baseUpdate instanceof TL_update.TL_updateChannel) {
                 if (BuildVars.LOGS_ENABLED) {
